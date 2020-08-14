@@ -2,12 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/joho/godotenv"
 )
 
@@ -25,6 +26,12 @@ type PoemistItem struct {
 		Url  string `json:"url"`
 	}
 }
+
+var Keyboard = tgbotapi.NewReplyKeyboard(
+	tgbotapi.NewKeyboardButtonRow(
+		tgbotapi.NewKeyboardButton("/poem"),
+	),
+)
 
 type YandexTranslateResponse struct {
 	Code int      `json:"code"`
@@ -47,15 +54,53 @@ func loadEnv() error {
 }
 
 func main() {
+	bot, err := tgbotapi.NewBotAPI(os.Getenv("TELE_TOKEN"))
+	if err != nil {
+		log.Panic(err)
+	}
+	bot.Debug = true
+	log.Printf("Authorized on account %s", bot.Self.UserName)
+	u := tgbotapi.NewUpdate(0)
+	updates, err := bot.GetUpdatesChan(u)
+
+	for update := range updates {
+		if update.Message == nil {
+			continue
+		}
+
+		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+
+		if update.Message.IsCommand() {
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
+			switch update.Message.Command() {
+			case "start":
+				msg.Text = "Здарова"
+			case "poem":
+				msg.ReplyMarkup = Keyboard
+				msg.Text = getBashPoem()
+			default:
+				msg.Text = "Пиши /poem"
+			}
+			bot.Send(msg)
+		} else {
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Пиши /poem")
+			bot.Send(msg)
+
+		}
+
+	}
+}
+
+func getBashPoem() string {
 	poems, err := getPoems()
 	if err != nil {
 		panic(err)
 	}
-	// fmt.Println(poems[0].Content)
-	translateRequest(poems[0].Content)
+	text := translateRequest(poems[0].Content)
+	return text
 }
 
-func translateRequest(text string) {
+func translateRequest(text string) string {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://translate.yandex.net/api/v1.5/tr.json/translate", nil)
 	if err != nil {
@@ -63,7 +108,7 @@ func translateRequest(text string) {
 	}
 	q := req.URL.Query()
 	q.Add("key", os.Getenv("YANDEX_TRANSLATE_TOKEN"))
-	q.Add("lang", "ru-ba")
+	q.Add("lang", "en-ba")
 	q.Add("format", "plain")
 	q.Add("text", text)
 	req.URL.RawQuery = q.Encode()
@@ -81,8 +126,8 @@ func translateRequest(text string) {
 		panic(err)
 
 	}
-	fmt.Println(req.URL.String())
-	// fmt.Println(yaResponse)
+	// fmt.Println(req.URL.String())
+	return yaResponse.Text[0]
 }
 
 func getPoems() ([]PoemistItem, error) {
