@@ -62,14 +62,11 @@ func main() {
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 	u := tgbotapi.NewUpdate(0)
 	updates, err := bot.GetUpdatesChan(u)
-
 	for update := range updates {
 		if update.Message == nil {
 			continue
 		}
-
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-
 		if update.Message.IsCommand() {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
 			switch update.Message.Command() {
@@ -85,9 +82,7 @@ func main() {
 		} else {
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Пиши /poem")
 			bot.Send(msg)
-
 		}
-
 	}
 }
 
@@ -126,12 +121,10 @@ func translateRequest(text string) string {
 		panic(err)
 
 	}
-	// fmt.Println(req.URL.String())
 	return yaResponse.Text[0]
 }
 
 func getPoems() ([]PoemistItem, error) {
-
 	resp, err := http.Get(PoemistAPIUrl)
 	if err != nil {
 		return nil, err
